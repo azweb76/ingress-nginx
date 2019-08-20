@@ -308,15 +308,19 @@ http {
         {{ end }}
     }
 
-    # The following is a sneaky way to do "set $the_real_ip $remote_addr"
-    # Needed because using set is not allowed outside server blocks.
-    map '' $the_real_ip {
-    {{ if $cfg.UseProxyProtocol }}
+    map $pass_server_port $real_ip_header {
+        {{ $all.ListenPorts.SSLProxy }} proxy_protocol;
+        default                         {{ $cfg.ForwardedForHeader }};
+    }
+
+    map $real_ip_header $the_real_ip {
         # Get IP address from Proxy Protocol
+        proxy_protocol   $proxy_protocol_addr;
+        {{ if $all.Cfg.UseProxyProtocol }}
         default          $proxy_protocol_addr;
-    {{ else }}
+        {{ else }}
         default          $remote_addr;
-    {{ end }}
+        {{ end }}
     }
 
     # Reverse proxies can detect if a client provides a X-Request-ID header, and pass it on to the backend server.
@@ -681,8 +685,6 @@ stream {
     server {
         listen unix:{{ .StreamSocket }};
 
-        access_log off;
-        
         content_by_lua_block {
           tcp_udp_configuration.call()
         }
@@ -932,8 +934,8 @@ stream {
             proxy_buffer_size                       {{ $location.Proxy.BufferSize }};
             proxy_buffers                           {{ $location.Proxy.BuffersNumber }} {{ $location.Proxy.BufferSize }};
             proxy_request_buffering                 {{ $location.Proxy.RequestBuffering }};
-            proxy_http_version                      {{ $location.Proxy.ProxyHTTPVersion }};
 
+            proxy_http_version          1.1;
             proxy_ssl_server_name       on;
             proxy_pass_request_headers  on;
             {{ if isValidByteSize $location.Proxy.BodySize true }}
@@ -1229,7 +1231,8 @@ stream {
             proxy_buffer_size                       {{ $location.Proxy.BufferSize }};
             proxy_buffers                           {{ $location.Proxy.BuffersNumber }} {{ $location.Proxy.BufferSize }};
             proxy_request_buffering                 {{ $location.Proxy.RequestBuffering }};
-            proxy_http_version                      {{ $location.Proxy.ProxyHTTPVersion }};
+
+            proxy_http_version                      1.1;
 
             proxy_cookie_domain                     {{ $location.Proxy.CookieDomain }};
             proxy_cookie_path                       {{ $location.Proxy.CookiePath }};

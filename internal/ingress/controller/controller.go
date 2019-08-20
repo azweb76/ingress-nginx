@@ -129,12 +129,12 @@ func (n *NGINXController) syncIngress(interface{}) error {
 
 	n.metricCollector.SetHosts(hosts)
 
+	hash, _ := hashstructure.Hash(pcfg, &hashstructure.HashOptions{
+		TagName: "json",
+	})
+
 	if !n.IsDynamicConfigurationEnough(pcfg) {
 		klog.Infof("Configuration changes detected, backend reload required.")
-
-		hash, _ := hashstructure.Hash(pcfg, &hashstructure.HashOptions{
-			TagName: "json",
-		})
 
 		pcfg.ConfigurationChecksum = fmt.Sprintf("%v", hash)
 
@@ -147,8 +147,6 @@ func (n *NGINXController) syncIngress(interface{}) error {
 		}
 
 		klog.Infof("Backend successfully reloaded.")
-		n.metricCollector.ConfigSuccess(hash, true)
-		n.metricCollector.IncReloadCount()
 	}
 
 	isFirstSync := n.runningConfig.Equal(&ingress.Configuration{})
@@ -177,9 +175,14 @@ func (n *NGINXController) syncIngress(interface{}) error {
 		return false, err
 	})
 	if err != nil {
+		n.metricCollector.IncReloadErrorCount()
+		n.metricCollector.ConfigSuccess(hash, false)
 		klog.Errorf("Unexpected failure reconfiguring NGINX:\n%v", err)
 		return err
 	}
+
+	n.metricCollector.ConfigSuccess(hash, true)
+	n.metricCollector.IncReloadCount()
 
 	ri := getRemovedIngresses(n.runningConfig, pcfg)
 	re := getRemovedHosts(n.runningConfig, pcfg)

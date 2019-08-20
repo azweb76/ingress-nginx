@@ -143,6 +143,8 @@ func NewController(pod, namespace, class string) *Controller {
 		),
 	}
 
+	cm.reloadOperationErrors.With(constLabels).Add(0)
+
 	return cm
 }
 

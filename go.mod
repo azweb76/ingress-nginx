@@ -18,6 +18,7 @@ require (
 	github.com/go-logr/logr v0.1.0 // indirect
 	github.com/go-logr/zapr v0.1.1 // indirect
 	github.com/go-openapi/spec v0.19.0 // indirect
+	github.com/gofortune/gofortune v0.0.1-snapshot // indirect
 	github.com/golang/groupcache v0.0.0-20190129154638-5b532d6fd5ef // indirect
 	github.com/google/uuid v1.0.0
 	github.com/googleapis/gnostic v0.2.0 // indirect
@@ -49,6 +50,7 @@ require (
 	github.com/spf13/cobra v0.0.4
 	github.com/spf13/pflag v1.0.3
 	github.com/tv42/httpunix v0.0.0-20150427012821-b75d8614f926
+	github.com/vromero/gofortune v0.0.1-snapshot
 	github.com/zakjan/cert-chain-resolver v0.0.0-20180703112424-6076e1ded272
 	go.uber.org/atomic v1.4.0 // indirect
 	go.uber.org/multierr v1.1.0 // indirect

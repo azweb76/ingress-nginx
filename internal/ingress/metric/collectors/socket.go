@@ -202,6 +202,7 @@ func NewSocketCollector(pod, namespace, class string, metricsPerHost bool) (*Soc
 		prometheus.BuildFQName(PrometheusNamespace, "", "response_size"):             sc.responseLength,
 
 		prometheus.BuildFQName(PrometheusNamespace, "", "bytes_sent"): sc.bytesSent,
+		prometheus.BuildFQName(PrometheusNamespace, "", "requests"):   sc.requests,
 
 		prometheus.BuildFQName(PrometheusNamespace, "", "ingress_upstream_latency_seconds"): sc.upstreamLatency,
 	}
@@ -226,6 +227,11 @@ func (sc *SocketCollector) handleMessage(msg []byte) {
 			continue
 		}
 
+		if stats.Ingress == "" {
+			klog.V(2).Infof("skipping metric for host %v that is missing ingress", stats.Host)
+			continue
+		}
+
 		// Note these must match the order in requestTags at the top
 		requestLabels := prometheus.Labels{
 			"status":    stats.Status,
@@ -246,11 +252,11 @@ func (sc *SocketCollector) handleMessage(msg []byte) {
 			"service":   stats.Service,
 		}
 
-		latencyLabels := prometheus.Labels{
-			"namespace": stats.Namespace,
-			"ingress":   stats.Ingress,
-			"service":   stats.Service,
-		}
+		// latencyLabels := prometheus.Labels{
+		// 	"namespace": stats.Namespace,
+		// 	"ingress":   stats.Ingress,
+		// 	"service":   stats.Service,
+		// }
 
 		requestsMetric, err := sc.requests.GetMetricWith(collectorLabels)
 		if err != nil {
@@ -259,14 +265,14 @@ func (sc *SocketCollector) handleMessage(msg []byte) {
 			requestsMetric.Inc()
 		}
 
-		if stats.Latency != -1 {
-			latencyMetric, err := sc.upstreamLatency.GetMetricWith(latencyLabels)
-			if err != nil {
-				klog.Errorf("Error fetching latency metric: %v", err)
-			} else {
-				latencyMetric.Observe(stats.Latency)
-			}
-		}
+		// if stats.Latency != -1 {
+		// 	latencyMetric, err := sc.upstreamLatency.GetMetricWith(latencyLabels)
+		// 	if err != nil {
+		// 		klog.Errorf("Error fetching latency metric: %v", err)
+		// 	} else {
+		// 		latencyMetric.Observe(stats.Latency)
+		// 	}
+		// }
 
 		if stats.RequestTime != -1 {
 			requestTimeMetric, err := sc.requestTime.GetMetricWith(requestLabels)
@@ -277,14 +283,14 @@ func (sc *SocketCollector) handleMessage(msg []byte) {
 			}
 		}
 
-		if stats.RequestLength != -1 {
-			requestLengthMetric, err := sc.requestLength.GetMetricWith(requestLabels)
-			if err != nil {
-				klog.Errorf("Error fetching request length metric: %v", err)
-			} else {
-				requestLengthMetric.Observe(stats.RequestLength)
-			}
-		}
+		// if stats.RequestLength != -1 {
+		// 	requestLengthMetric, err := sc.requestLength.GetMetricWith(requestLabels)
+		// 	if err != nil {
+		// 		klog.Errorf("Error fetching request length metric: %v", err)
+		// 	} else {
+		// 		requestLengthMetric.Observe(stats.RequestLength)
+		// 	}
+		// }
 
 		if stats.ResponseTime != -1 {
 			responseTimeMetric, err := sc.responseTime.GetMetricWith(requestLabels)
@@ -295,21 +301,21 @@ func (sc *SocketCollector) handleMessage(msg []byte) {
 			}
 		}
 
-		if stats.ResponseLength != -1 {
-			bytesSentMetric, err := sc.bytesSent.GetMetricWith(requestLabels)
-			if err != nil {
-				klog.Errorf("Error fetching bytes sent metric: %v", err)
-			} else {
-				bytesSentMetric.Observe(stats.ResponseLength)
-			}
+		// if stats.ResponseLength != -1 {
+		// 	bytesSentMetric, err := sc.bytesSent.GetMetricWith(requestLabels)
+		// 	if err != nil {
+		// 		klog.Errorf("Error fetching bytes sent metric: %v", err)
+		// 	} else {
+		// 		bytesSentMetric.Observe(stats.ResponseLength)
+		// 	}
 
-			responseSizeMetric, err := sc.responseLength.GetMetricWith(requestLabels)
-			if err != nil {
-				klog.Errorf("Error fetching bytes sent metric: %v", err)
-			} else {
-				responseSizeMetric.Observe(stats.ResponseLength)
-			}
-		}
+		// 	responseSizeMetric, err := sc.responseLength.GetMetricWith(requestLabels)
+		// 	if err != nil {
+		// 		klog.Errorf("Error fetching bytes sent metric: %v", err)
+		// 	} else {
+		// 		responseSizeMetric.Observe(stats.ResponseLength)
+		// 	}
+		// }
 	}
 }
 
@@ -378,6 +384,14 @@ func (sc *SocketCollector) RemoveMetrics(ingresses []string, registry prometheus
 			h, ok := metric.(*prometheus.HistogramVec)
 			if ok {
 				removed := h.Delete(labels)
+				if !removed {
+					klog.V(2).Infof("metric %v for ingress %v with labels not removed: %v", metricName, ingKey, labels)
+				}
+			}
+
+			c, ok := metric.(*prometheus.CounterVec)
+			if ok {
+				removed := c.Delete(labels)
 				if !removed {
 					klog.V(2).Infof("metric %v for ingress %v with labels not removed: %v", metricName, ingKey, labels)
 				}

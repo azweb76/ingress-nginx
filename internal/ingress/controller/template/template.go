@@ -518,21 +518,34 @@ func buildProxyPass(host string, b interface{}, loc interface{}) string {
 	// defProxyPass returns the default proxy_pass, just the name of the upstream
 	defProxyPass := fmt.Sprintf("%v %s%s;", proxyPass, proto, upstreamName)
 
+	target := location.Rewrite.Target
+
 	// if the path in the ingress rule is equals to the target: no special rewrite
-	if path == location.Rewrite.Target {
+	if path == target {
 		return defProxyPass
 	}
 
-	if len(location.Rewrite.Target) > 0 {
+	if len(target) > 0 {
 		var xForwardedPrefix string
 
 		if len(location.XForwardedPrefix) > 0 {
 			xForwardedPrefix = fmt.Sprintf("proxy_set_header X-Forwarded-Prefix \"%s\";\n", location.XForwardedPrefix)
 		}
 
+		matched, err := regexp.MatchString("[$][0-9]+", target)
+		if err != nil {
+			klog.Errorf("failed to match rewrite target %s", target)
+		} else if !matched {
+			return fmt.Sprintf(`
+rewrite "(?i)%s(.*)" %s$1 break;
+rewrite "(?i)%s$" %s break;
+%v%v %s%s;`, path, target, path,
+				target, xForwardedPrefix, proxyPass, proto, upstreamName)
+		}
+
 		return fmt.Sprintf(`
 rewrite "(?i)%s" %s break;
-%v%v %s%s;`, path, location.Rewrite.Target, xForwardedPrefix, proxyPass, proto, upstreamName)
+%v%v %s%s;`, path, target, xForwardedPrefix, proxyPass, proto, upstreamName)
 	}
 
 	// default proxy_pass
